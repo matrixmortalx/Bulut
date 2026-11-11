@@ -33,8 +33,12 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.UnfoldMore
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -368,10 +372,20 @@ private fun AsistanYaniti(
             }
         }
         if (!akiyor) {
+            val baglam = LocalContext.current
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (mesaj.icerik.isNotEmpty()) {
                     IconButton(onClick = { pano.setText(AnnotatedString(mesaj.icerik)) }, Modifier.size(36.dp)) {
                         Icon(Icons.Default.ContentCopy, "Kopyala", Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = {
+                        val paylas = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, mesaj.icerik)
+                        }
+                        baglam.startActivity(Intent.createChooser(paylas, "Paylaş"))
+                    }, Modifier.size(36.dp)) {
+                        Icon(Icons.Default.Share, "Paylaş", Modifier.size(16.dp))
                     }
                 }
                 if (yenile != null) {
@@ -380,7 +394,7 @@ private fun AsistanYaniti(
                     }
                 }
                 Text(
-                    mesaj.model,
+                    "${mesaj.model} · ${java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(mesaj.zaman))}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline,
                     maxLines = 1, overflow = TextOverflow.Ellipsis,

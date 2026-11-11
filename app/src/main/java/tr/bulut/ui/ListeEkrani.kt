@@ -16,7 +16,16 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -60,6 +69,10 @@ fun ListeEkrani(
     val uretenler by vm.uretenler.collectAsStateWithLifecycle()
     val hazir = ayarlar.saglayicilar.any { it.kullanilabilir(anahtarlilar) }
     var silinecek by remember { mutableStateOf<Sohbet?>(null) }
+    var tumunuSil by remember { mutableStateOf(false) }
+    var menuAcik by remember { mutableStateOf(false) }
+    val baglam = LocalContext.current
+    val kapsam = remember { kotlinx.coroutines.CoroutineScope(Dispatchers.Main) }
 
     Scaffold(
         topBar = {
@@ -68,6 +81,31 @@ fun ListeEkrani(
                 actions = {
                     IconButton(onClick = studyoAc) { Icon(Icons.Default.Brush, "Görsel stüdyosu") }
                     IconButton(onClick = galeriAc) { Icon(Icons.Default.PhotoLibrary, "Galeri") }
+                    IconButton(onClick = { menuAcik = true }) { Icon(Icons.Default.MoreVert, "Daha fazla") }
+                    DropdownMenu(expanded = menuAcik, onDismissRequest = { menuAcik = false }) {
+                        DropdownMenuItem(
+                            text = { Text("Tüm sohbetleri dışa aktar") },
+                            onClick = {
+                                menuAcik = false
+                                kapsam.launch {
+                                    val veri = vm.sohbetleriDisariAktar()
+                                    val paylas = Intent(Intent.ACTION_SEND).apply {
+                                        type = "application/json"
+                                        putExtra(Intent.EXTRA_TEXT, veri)
+                                        putExtra(Intent.EXTRA_SUBJECT, "Bulut sohbetleri")
+                                    }
+                                    baglam.startActivity(Intent.createChooser(paylas, "Dışa aktar"))
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Tüm sohbetleri temizle") },
+                            onClick = {
+                                menuAcik = false
+                                tumunuSil = true
+                            }
+                        )
+                    }
                     IconButton(onClick = ayarlarAc) { Icon(Icons.Default.Settings, "Ayarlar") }
                 },
             )
@@ -136,6 +174,16 @@ fun ListeEkrani(
             text = { Text(s.baslik.ifBlank { "Adsız sohbet" }) },
             confirmButton = { TextButton(onClick = { vm.sohbetSil(s.id); silinecek = null }) { Text("Sil") } },
             dismissButton = { TextButton(onClick = { silinecek = null }) { Text("Vazgeç") } },
+        )
+    }
+
+    if (tumunuSil) {
+        AlertDialog(
+            onDismissRequest = { tumunuSil = false },
+            title = { Text("Tüm sohbetleri temizle") },
+            text = { Text("Tüm sohbetler silinecek. Bu işlem geri alınamaz.") },
+            confirmButton = { TextButton(onClick = { vm.tumSohbetleriSil(); tumunuSil = false }) { Text("Temizle") } },
+            dismissButton = { TextButton(onClick = { tumunuSil = false }) { Text("Vazgeç") } },
         )
     }
 }

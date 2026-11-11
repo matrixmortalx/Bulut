@@ -32,6 +32,8 @@ import tr.bulut.veri.Sohbet
 import java.io.File
 import java.util.UUID
 import kotlin.random.Random
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.json.Json
 
 /**
  * Tek ViewModel: üretim burada yaşadığı için ekran döndürme ya da ekranlar
@@ -144,6 +146,36 @@ class BulutViewModel(uygulama: Application) : AndroidViewModel(uygulama) {
         durdur(id)
         _sohbetler.update { liste -> liste.filterNot { it.id == id } }
         viewModelScope.launch(Dispatchers.IO) { depo.sohbetSil(id) }
+    }
+
+    fun tumSohbetleriSil() {
+        _sohbetler.value.forEach { durdur(it.id) }
+        _sohbetler.value = emptyList()
+        viewModelScope.launch(Dispatchers.IO) {
+            _sohbetler.value.forEach { depo.sohbetSil(it.id) }
+        }
+    }
+
+    suspend fun sohbetleriDisariAktar(): String = withContext(Dispatchers.IO) {
+        val json = kotlinx.serialization.json.Json { prettyPrint = true; encodeDefaults = true }
+        json.encodeToString(kotlinx.serialization.builtins.ListSerializer(Sohbet.serializer()), _sohbetler.value)
+    }
+
+    fun sohbetleriIceAktar(jsonMetin: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val json = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+                val liste = json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(Sohbet.serializer()), jsonMetin)
+                if (liste.isNotEmpty()) {
+                    val mevcut = _sohbetler.value.associateBy { it.id }
+                    val birlesik = (liste.map { it.copy(guncellendi = System.currentTimeMillis()) } + _sohbetler.value)
+                        .distinctBy { it.id }
+                        .sortedByDescending { it.guncellendi }
+                    _sohbetler.value = birlesik
+                    birlesik.forEach { depo.sohbetKaydet(it) }
+                }
+            }
+        }
     }
 
     /** Hiç mesajı olmayan sohbet diske yazılmaz; ekrandan çıkınca listeden de düşer. */
